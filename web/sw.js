@@ -1,5 +1,5 @@
 // Service Worker：快取程式外殼，斷線時仍可開啟；資料讀寫的離線處理在 app.js（localStorage 佇列）
-const C = 'oav-v2';
+const C = 'oav-v3';
 const SHELL = ['./', 'index.html', 'app.js', 'app.css', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(C).then(c => c.addAll(SHELL))); self.skipWaiting(); });
 self.addEventListener('activate', e => {

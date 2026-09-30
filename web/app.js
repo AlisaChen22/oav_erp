@@ -149,37 +149,51 @@ async function vMenu() {
 }
 
 // ---------- 列表 ----------
-function table(cols, rows, onRow) {
+// sel：傳入 Set 時每列前面出現勾選框（拷貝用）
+function table(cols, rows, onRow, sel, onSel) {
   const names = cols.map(c => c.欄位), num = new Set(cols.filter(c => /int|decimal|numeric/.test(c.型別)).map(c => c.欄位));
+  const pick = (e, r) => {
+    const cb = e.currentTarget.querySelector('input');
+    if (e.target !== cb) cb.checked = !cb.checked;
+    cb.checked ? sel.add(r) : sel.delete(r); onSel && onSel();
+  };
   return [el('div', { class: 'tbl' }, el('table', {},
-    el('thead', {}, el('tr', {}, names.map(n => el('th', {}, n)))),
-    el('tbody', {}, rows.map(r => el('tr', { class: onRow ? 'click' : null, onclick: onRow ? () => onRow(r) : null },
+    el('thead', {}, el('tr', {}, sel && el('th', {}, '✓'), names.map(n => el('th', {}, n)))),
+    el('tbody', {}, rows.map(r => el('tr', { class: onRow || sel ? 'click' : null, onclick: sel ? e => pick(e, r) : onRow ? () => onRow(r) : null },
+      sel && el('td', {}, el('input', { type: 'checkbox' })),
       names.map(n => el('td', { class: num.has(n) ? 'n' : null }, r[n] ?? ''))))))),
   el('div', { class: 'cnt' }, `共 ${rows.length} 筆${rows.length >= 500 ? '（僅顯示前 500 筆，請用關鍵字縮小範圍）' : ''}`)];
 }
-async function vList(fn) {
+// lvl / parent：多層鑽取（層級定義在 api.鑽取層級）
+async function vList(fn, lvl = 1, parent = null) {
   let def; try { def = await getDef(fn); } catch (e) { return errBox({ 錯誤: e.message }); }
-  const box = el('div'), q = el('input', { type: 'search', placeholder: '關鍵字搜尋', value: store.get('q:' + fn, '') });
+  const levels = def.層級 || [], L = levels[lvl - 1], cols = L ? L.欄位 : def.欄位, sk = fn + ':' + lvl;
+  const box = el('div'), q = el('input', { type: 'search', placeholder: '關鍵字搜尋', value: parent ? '' : store.get('q:' + sk, '') });
   const pk = def.欄位.filter(c => c.主鍵).map(c => c.欄位);
-  const open = row => def.類型 === '主檔' ? go(def.名稱, () => vForm(def, row))
-    : go(def.名稱, () => vDoc(def, Object.fromEntries(pk.map(k => [k, row[k]]))));
+  const open = L ? (lvl < levels.length ? row => go(levels[lvl].名稱, () => vList(fn, lvl + 1, row)) : null)
+    : def.類型 === '報表' ? null
+    : def.類型 === '主檔' ? row => go(def.名稱, () => vForm(def, row))
+    : row => go(def.名稱, () => vDoc(def, Object.fromEntries(pk.map(k => [k, row[k]]))));
   // 報表參數（例如 年度）：名稱、型別、預設值都來自 SQL Server 的 sys.parameters
   const params = store.get('p:' + fn, null) ?? Object.fromEntries((def.參數 || []).map(p => [p.參數, p.預設 == null ? null : p.型別 === 'int' ? Number(p.預設) : p.預設]));
-  const pbox = (def.參數 || []).map(p => field({ 欄位: p.參數, 型別: p.型別, 可空: true }, params, '', false));
+  const pbox = lvl > 1 ? [] : (def.參數 || []).map(p => field({ 欄位: p.參數, 型別: p.型別, 可空: true }, params, '', false));
   const load = async () => {
-    store.set('q:' + fn, q.value); store.set('p:' + fn, params);
-    const r = await read({ 動作: '查詢', 功能: fn, 關鍵字: q.value || null, 參數: params });
-    box.replaceChildren(...(r.ok ? table(def.欄位, r.資料, def.類型 === '報表' ? null : open) : [errBox(r)]));
+    if (!parent) store.set('q:' + sk, q.value);
+    store.set('p:' + fn, params);
+    const r = await read({ 動作: '查詢', 功能: fn, 層次: L ? lvl : undefined, 上層: parent, 關鍵字: q.value || null, 參數: params });
+    box.replaceChildren(...(r.ok ? table(cols, r.資料, open) : [errBox(r)]));
   };
   q.addEventListener('keydown', e => e.key === 'Enter' && load());
   load();
   return el('div', {},
+    L && el('div', { class: 'crumb' }, levels.map((x, i) => el('span', { class: i === lvl - 1 ? 'on' : null }, x.名稱)),
+      L.對應 && el('div', { class: 'cnt' }, Object.entries(L.對應).map(([k, v]) => `${k}＝${parent?.[v] ?? ''}`).join('　')),
+      lvl < levels.length && el('div', { class: 'cnt' }, `點選一列查看「${levels[lvl].名稱}」`)),
     pbox.length > 0 && el('div', { class: 'bar params' }, pbox),
     el('div', { class: 'bar' }, q, el('button', { class: 'b alt', onclick: load }, '查詢'),
-      def.類型 !== '報表' && el('button', { class: 'b', onclick: () => go(def.名稱, () => def.類型 === '主檔' ? vForm(def, null) : vDoc(def, null)) }, '＋ 新增')),
+      !L && def.類型 !== '報表' && el('button', { class: 'b', onclick: () => go(def.名稱, () => def.類型 === '主檔' ? vForm(def, null) : vDoc(def, null)) }, '＋ 新增')),
     box);
 }
-
 // ---------- 主檔維護 ----------
 async function vForm(def, row) {
   const isNew = !row, data = { ...(row || {}) };
@@ -216,6 +230,33 @@ async function vDoc(def, key) {
       el('button', { title: '刪除此項次', onclick: () => { doc.明細.splice(i, 1); drawLines(); } }, '×')),
     lineCols.map(c => field(c, ln, def.明細表, false)))));
   drawLines();
+  const head = el('div', { class: 'form' });
+  const drawHead = () => head.replaceChildren(...def.欄位.map(c => field(c, doc, def.物件, !!key && c.主鍵)));
+  drawHead();
+  // 從來源（例如 已訂未出明細）勾選後拷貝；對應與檢核都在 SQL Server（api.拷貝來源、api.p_拷貝）
+  const pick = cp => {
+    const sel = new Set(), box = el('div'), n = el('b', {}, '0');
+    const q = el('input', { type: 'search', placeholder: '關鍵字搜尋' });
+    const close = () => ov.remove();
+    const load = async () => {
+      sel.clear(); n.textContent = '0';
+      const r = await read({ 動作: '拷貝來源', 功能: def.功能, 代碼: cp.代碼, 表頭: doc, 關鍵字: q.value || null });
+      box.replaceChildren(...(r.ok ? table(cp.欄位, r.資料, null, sel, () => n.textContent = sel.size) : [errBox(r)]));
+    };
+    const copy = async () => {
+      const r = await read({ 動作: '拷貝', 功能: def.功能, 代碼: cp.代碼, 表頭: doc, 明細: doc.明細, 選取: [...sel] });
+      if (!r.ok) return toast(r.錯誤, 6000);
+      Object.assign(doc, r.資料.表頭); doc.明細.push(...r.資料.明細);
+      drawHead(); drawLines(); close(); toast(`已拷貝 ${r.資料.明細.length} 項，請確認數量與倉庫`);
+    };
+    q.addEventListener('keydown', e => e.key === 'Enter' && load());
+    const ov = el('div', { class: 'modal' },
+      el('header', {}, el('button', { onclick: close, 'aria-label': '關閉' }, '×'), el('h1', {}, cp.名稱)),
+      el('main', {}, el('div', { class: 'bar' }, q, el('button', { class: 'b alt', onclick: load }, '查詢')), box,
+        el('div', { class: 'acts sticky' }, el('button', { class: 'b', onclick: copy }, '拷貝勾選項目（', n, '）'),
+          el('button', { class: 'b alt', onclick: close }, '取消'))));
+    document.body.append(ov); load();
+  };
   const save = async () => {
     const r = await write({ 動作: '存檔', 功能: def.功能, 資料: doc });
     if (!r.ok) return toast(r.錯誤, 6000);
@@ -230,9 +271,10 @@ async function vDoc(def, key) {
     toast(r.排隊 ? '離線：刪除已排入待上傳' : '已刪除'); back();
   };
   return el('div', {},
-    el('div', { class: 'form' }, def.欄位.map(c => field(c, doc, def.物件, !!key && c.主鍵))),
+    head,
     el('h3', {}, `明細（${def.明細表}）`), lines,
     el('div', { class: 'acts' },
+      (def.拷貝 || []).map(cp => el('button', { class: 'b alt', onclick: () => pick(cp) }, cp.名稱)),
       el('button', { class: 'b alt', onclick: () => { doc.明細.push({}); drawLines(); } }, '＋ 新增項次'),
       el('button', { class: 'b', onclick: save }, '存檔'),
       key && el('button', { class: 'b del', onclick: del }, '刪除單據'),

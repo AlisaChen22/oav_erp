@@ -7,9 +7,10 @@
 2. **資料庫優先**：先改 sql/*.sql（資料表 → 視圖/函數 → 觸發程序 → API → 功能表 → 範例資料 → 驗證）。
 3. **部署**：`python deploy.py --reset`；任何 `✗` 都要處理。
 4. **驗證**：`python verify.py` 必須「全部通過」；新規則要加進 `dbo.驗證結果`。
-5. **畫面**：只有在 SQL 無法表達時才改 `web/app.js`；改了就把 `web/sw.js` 的快取版本號 +1。
-6. **文件**：更新 README.md、CLAUDE.md、SKILL.md、AGENT.md。
-7. **發佈**：commit → push → `gh release create`，把 release 連結給使用者。
+5. **設定優先**：鑽取報表用 `api.鑽取層級`、單據拷貝用 `api.拷貝來源`，都是加資料列，不必寫程式。
+6. **畫面**：只有在 SQL 無法表達時才改 `web/app.js`；改了就把 `web/sw.js` 的快取版本號 +1。
+7. **文件**：更新 README.md、CLAUDE.md、SKILL.md、AGENT.md。
+8. **發佈**：commit → push → `gh release create`，把 release 連結給使用者。
 
 ## 分工建議（多代理時）
 | 代理 | 負責 | 不可做 |
