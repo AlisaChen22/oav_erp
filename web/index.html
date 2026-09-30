@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>OAV ERP 庫存管理</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1f4e79">
+<link rel="icon" href="icon.svg">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<header>
+  <button id="back" aria-label="返回" hidden>‹</button>
+  <h1 id="title">OAV ERP</h1>
+  <span id="net" title="連線狀態"></span>
+  <button id="sync" title="待上傳 / 同步">⇅ <b id="qn">0</b></button>
+</header>
+<main id="main"></main>
+<div id="toast" role="status"></div>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+{
+  "server": "主機,埠號",
+  "database": "oav37",
+  "uid": "帳號",
+  "pwd": "密碼",
+  "driver": "SQL Server"
+}
