@@ -34,6 +34,6 @@ python server.py           # http://localhost:8000
 出貨/退回/收貨/退回/入庫/領料 六項累加、每日庫存餘額 `期初+入-出=期末`、每日供需餘額 `在手+供給-需求=可用`、庫存帳與單據一致、在途與未結單據一致。
 
 ## 工作流程（使用者要求）
-- 每開發到一個段落就 commit 並推到 GitHub，並給使用者發佈（release）連結。
+- 每開發到一個段落就 commit 並推到 GitHub（https://github.com/AlisaChen22/oav_erp），並用 `gh release create` 建立發佈，把連結給使用者。
 - 每次任務完成都要更新 README.md、CLAUDE.md、SKILL.md、AGENT.md。
 - 不可把 `config.local.json` 或任何密碼推上 GitHub。
